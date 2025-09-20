@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 
 # Configurable model path
-MODEL_PATH = os.getenv("MODEL_PATH", r"C:\Users\vivek\Downloads\test front 3 - final\test front 3 - final, maybe\templates\best.pt")
+MODEL_PATH = os.getenv("MODEL_PATH", r"templates/best.pt")
 model = YOLO(MODEL_PATH)
 
 bounding_box_annotator = sv.BoxAnnotator()
