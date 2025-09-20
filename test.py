@@ -14,9 +14,18 @@ logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 
-# Configurable model path (put your weights in a folder like "models/best.pt")
+# ------------------------------
+# Model setup
+# ------------------------------
+# Place your model weights in a "models" folder, not inside templates
 MODEL_PATH = os.getenv("MODEL_PATH", "models/best.pt")
-model = YOLO(MODEL_PATH)
+
+try:
+    model = YOLO(MODEL_PATH)
+    logging.info(f"Model loaded successfully from {MODEL_PATH}")
+except Exception as e:
+    logging.error(f"Error loading model: {e}")
+    model = None  # Fail gracefully
 
 bounding_box_annotator = sv.BoxAnnotator()
 label_annotator = sv.LabelAnnotator()
@@ -24,12 +33,16 @@ executor = ThreadPoolExecutor(max_workers=2)
 processing_lock = Lock()
 
 
+# ------------------------------
+# Helper function
+# ------------------------------
 def process_image(img_np):
     input_size = (640, 480)
     resized_img = cv2.resize(img_np, input_size)
 
     results = model(resized_img, conf=0.6, iou=0.5)[0]
 
+    # Rescale detections back
     scale_x = img_np.shape[1] / input_size[0]
     scale_y = img_np.shape[0] / input_size[1]
     detections = sv.Detections.from_ultralytics(results)
@@ -43,30 +56,48 @@ def process_image(img_np):
     return base64.b64encode(buffer).decode('utf-8')
 
 
-@app.route('/process_frame', methods=['POST'])
+# ------------------------------
+# Routes
+# ------------------------------
+@app.route("/")
+def home():
+    # Make sure "templates/test1.html" exists (renamed, no spaces)
+    return render_template("test1.html")
+
+
+@app.route("/index")
+def index():
+    # Make sure "templates/index.html" exists
+    return render_template("index.html")
+
+
+@app.route("/process_frame", methods=["POST"])
 def process_frame():
+    if model is None:
+        return jsonify({"error": "Model not loaded"}), 500
+
     try:
         if processing_lock.locked():
-            return jsonify({'image': None})
+            return jsonify({"image": None})
 
         data = request.get_json()
-        image_data = data['image']
-        img_str = base64.b64decode(image_data.split(',')[1])
+        image_data = data.get("image")
+        if not image_data:
+            return jsonify({"error": "No image provided"}), 400
+
+        img_str = base64.b64decode(image_data.split(",")[1])
         img_np = cv2.imdecode(np.frombuffer(img_str, np.uint8), cv2.IMREAD_COLOR)
 
         with processing_lock:
             annotated_image_str = process_image(img_np)
-        return jsonify({'image': f'data:image/jpeg;base64,{annotated_image_str}'})
+
+        return jsonify({"image": f"data:image/jpeg;base64,{annotated_image_str}"})
     except Exception as e:
-        logging.error("Error processing frame: %s", str(e))
-        return jsonify({'error': str(e)})
+        logging.error(f"Error processing frame: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/')
-def home():
-    return render_template('test1.html')   # fixed name (no space)
-
-
-@app.route('/index')
-def index():
-    return render_template('index.html')
+# ------------------------------
+# Gunicorn entrypoint (no app.run here)
+# ------------------------------
+# Render/Heroku will use: gunicorn test:app --bind 0.0.0.0:$PORT
