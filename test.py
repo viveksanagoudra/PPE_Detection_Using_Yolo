@@ -68,7 +68,7 @@ def process_frame():
 
 @app.route('/')
 def home():
-    return render_template('test 1.html')
+    return render_template('templates/test1.html')
 
 
 @app.route('/index')
