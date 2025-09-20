@@ -1,10 +1,5 @@
 flask
 opencv-python
 numpy
-base64
 ultralytics
 supervision
-concurrent.futures
-os
-logging
-threading
