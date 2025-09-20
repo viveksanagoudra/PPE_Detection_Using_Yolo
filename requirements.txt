@@ -1,0 +1,10 @@
+flask
+cv2
+numpy
+base64
+ultralytics
+supervision
+concurrent.futures
+os
+logging
+threading
