@@ -14,8 +14,8 @@ logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 
-# Configurable model path
-MODEL_PATH = os.getenv("MODEL_PATH", r"templates/best.pt")
+# Configurable model path (put your weights in a folder like "models/best.pt")
+MODEL_PATH = os.getenv("MODEL_PATH", "models/best.pt")
 model = YOLO(MODEL_PATH)
 
 bounding_box_annotator = sv.BoxAnnotator()
@@ -25,13 +25,11 @@ processing_lock = Lock()
 
 
 def process_image(img_np):
-    # Increase the resolution for better output quality
-    input_size = (640, 480)  # High resolution
+    input_size = (640, 480)
     resized_img = cv2.resize(img_np, input_size)
 
     results = model(resized_img, conf=0.6, iou=0.5)[0]
 
-    # Scale detections back to original dimensions
     scale_x = img_np.shape[1] / input_size[0]
     scale_y = img_np.shape[0] / input_size[1]
     detections = sv.Detections.from_ultralytics(results)
@@ -41,7 +39,6 @@ def process_image(img_np):
     annotated_image = bounding_box_annotator.annotate(scene=img_np, detections=detections)
     annotated_image = label_annotator.annotate(scene=annotated_image, detections=detections)
 
-    # Higher quality encoding
     _, buffer = cv2.imencode('.jpg', annotated_image, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
     return base64.b64encode(buffer).decode('utf-8')
 
@@ -50,7 +47,7 @@ def process_image(img_np):
 def process_frame():
     try:
         if processing_lock.locked():
-            return jsonify({'image': None})  # Skip if still processing
+            return jsonify({'image': None})
 
         data = request.get_json()
         image_data = data['image']
@@ -67,16 +64,9 @@ def process_frame():
 
 @app.route('/')
 def home():
-    return render_template('test 1.html')
+    return render_template('test1.html')   # fixed name (no space)
 
 
 @app.route('/index')
 def index():
     return render_template('index.html')
-
-
-if __name__ == '__main__':
-    try:
-        app.run(debug=True)
-    finally:
-        executor.shutdown()
